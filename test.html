@@ -41,9 +41,21 @@
           title: 'Click to zoom'
         });
 
+
+
+        var base = .000005;
+        var stevie_lat_inc = 0;
+        var stevie_lng_inc = .000005;
+
+        setInterval(function() {
+   
+          stevie_lat_inc = Math.random() * base*2 - base;
+          stevie_lng_inc = Math.random() * base*2 - base;
+        }, 1000);
+
         setInterval(function() {
           oldPos = stevie_p.getPosition();
-          stevie_p.setPosition(new google.maps.LatLng(oldPos.lat(),oldPos.lng()+.000005));
+          stevie_p.setPosition(new google.maps.LatLng(oldPos.lat() + stevie_lat_inc, oldPos.lng()+ stevie_lng_inc));
 
         }, 30);
 
