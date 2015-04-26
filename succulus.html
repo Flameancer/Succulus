@@ -220,6 +220,9 @@
         else {
           x[0].innerHTML = ("Time Remaining: &#8734");
         }
+        if (timeCounter <= 10) {
+          document.getElementsByClassName("time").style.color = "red";
+        }
       }
 
       // recalculate distance between vacuum and opponent and update display
@@ -396,7 +399,7 @@
         catch_counter++;
         var x = document.getElementsByClassName("score");
         x[0].innerHTML = ("Score: " + catch_counter);
-        
+
         // get new opponent and update route color
         cur_opponent_index = newOpponent();
         line_options.strokeColor = getLineColor();
