@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <style type="text/css">
+     html, body, #map-canvas { height: 100%; margin: 0; padding: 0;}
+
+     #panel {
+       position: absolute;
+       left: 67%;
+       top: 5px;
+       /*margin-left: -180px;*/
+       z-index: 5;
+     }
+     p.score{
+       font-family: "Lucidia Console", "Monaco", monospace;
+       position: relative;
+       color: #c8cb2c ;
+       font-size: 2.19em;
+       /*left: 100%;*/
+       bottom: -1em;
+       margin:auto;
+     }
+     p.time{
+       font-family: "Lucidia Console", "Monaco", monospace;
+       position: relative;
+       color: #c8cb2c ;
+       font-size: 2.19em;
+       /*left: 100%;*/
+       bottom: -2.5em;
+       margin:auto;
+     }
+     p.distance{
+       font-family:"Lucidia Console", "Monaco", monospace;
+       position: relative;
+       color: #c8cb2c ;
+       font-size: 2.19em;
+       /*left: 100%;*/
+       bottom: 100%;
+       margin:auto;
+     }
+   </style>
+  </head>
+  <body>
+    <div id="map-canvas"></div>
+    <script type="text/javascript"
+      src="https://maps.googleapis.com/maps/api/js?key=AIzaSyB2gQzDsta9YsfhK4Xtptb70IKZZkL4zKU">
+    </script>
+    <script type="text/javascript">
+      // initialize a bunch of global variables
+      var directionsService = new google.maps.DirectionsService();
+      var map;
+      var opponent;
+      var vacuum;
+
+      // one of these will be displayed as the marker to be caught
+      var opponents = ["stevie_p", "dln", "jeff", "amy", "andy", "jadrian", "dave", "anna", "sherri", "putin", "obama"];
+      // pick one randomly
+      var cur_opponent_index = Math.floor(Math.random() * opponents.length);
+
+      // used in movement functions
+      // this is based on a starting zoom level of 18
+      var vacuum_movement = 0.00002;
+      var opponent_movement = vacuum_movement*50;
+
+      // score
+      var catch_counter = 0;
+
+      // opponent has a small window of immunity after being caught
+      var immune = false;
+
+      // used in timedMode
+      var timeCounter = 120;
+
+      // get user input
+      // returns true if they clicked OK for timed mode
+      // if false ("Cancel"), assume zen mode (no timer)
+      var timedMode = confirm("Click OK for timed mode");
+
+
+      // options for displaying the route
+      var line_options = {
+        // color based on the current opponent
+        strokeColor: getLineColor(),
+        strokeOpacity: 0.7,
+        strokeWeight: 5,
+      }
+
+      // stores an array of points on a path between the vacuum and the opponent
+      // gets updated each time either of them moves (and is redisplayed)
+      var vacuum_to_opponent = new google.maps.Polyline(line_options);
+
+      // function to pick route color based on the current opponent
+      function getLineColor() {
+        if (cur_opponent_index == 0) {
+          return "#4092ef";
+        }
+        else if (cur_opponent_index == 1) {
+          return "#FF0000";
+        }
+        else if (cur_opponent_index == 2) {
+          return "#8F006B";
+        }
+        else if (cur_opponent_index == 3) {
+          return "#FF6600";
+        }
+        else if (cur_opponent_index == 4) {
+          return "#FFFF00";
+        }
+        else if (cur_opponent_index == 5) {
+          return "#00FFFF";
+        }
+        else if (cur_opponent_index == 6) {
+          return "#FF3591";
+        }
+        else if (cur_opponent_index == 7) {
+          return "#8AB800";
+        }
+        else if (cur_opponent_index == 8) {
+          return "#C56BE7";
+        }
+        else if (cur_opponent_index == 9) {
+          // Soviet red for Putin
+          return "#A60202";
+        }
+        else {
+          return "#0052A5";
+        }
+      }
+
+      // set up the game
+      function initialize() {
+        // set up map options
+        // disable most input, constrain zoom levels, center on Northfield
+        var mapOptions = {
+          center: { lat: 44.461, lng: -93.153},
+          zoom: 18,
+          minZoom: 13,
+          mapTypeId: google.maps.MapTypeId.SATELLITE,
+          mapTypeControl: false,
+          draggable: false,
+          keyboardShortcuts: false,
+          panControl: false,
+          scaleControl: false,
+          zoomControl: false,
+          streetViewControl: false
+        };
+        var mapDiv = document.getElementById('map-canvas');
+        map = new google.maps.Map(mapDiv, mapOptions);
+
+        // set up the player controlled object, a hungry hungry vacuum!
+        vacuum = new google.maps.Marker({
+            position: map.getCenter(),
+            map: map,
+            icon: "vacuum.gif",
+            anchorPoint: {
+              x: 0,
+              y: -10
+            }
+        });
+
+        // set up the object to be chased by the vacuum
+        opponent = new google.maps.Marker({
+            //position: { lat: 44.4605, lng: -93.1525},
+            position: findNewStart(),
+            map: map,
+            icon: opponents[cur_opponent_index] + "gif"
+        })
+
+        // every 150ms, attempt to recalculate shortest path between vacuum and opponent and redisplay
+        // this is going to result in a lot of errors/failed requests because of API usage limits
+        // oh well!!
+        setInterval(calcRoute, 150);
+
+        // initialize the distance and time remaining displays
+        updateDistanceDisplay();
+        updateTimeDisplay();
+
+        // initial calculation of vacuum_to_opponent route
+        calcRoute();
+        // set up the first opponent movement. will call itself recursively so the opponent never stops
+        moveOpponent();
+
+        // every second, update time counter and time display
+        setInterval(function() {
+          timeCounter--;
+          // if not timed mode, nothing is displayed
+          updateTimeDisplay();
+
+          // end game and reload page to start over
+          if (timeCounter === 0 && timedMode) {
+            alert("GAME OVER\nYour score is: " + catch_counter);
+            location.reload();
+          }
+        }, 1000);
+
+        // if the zoom level on the map is changed, adjust the movement values
+        google.maps.event.addListener(map, "zoom_changed", function() {
+          updateVacuumMovement();
+          opponent_movement = vacuum_movement * 50;
+        });
+      }
+
+      // return index number of new opponent (pick randomly from the others)
+      function newOpponent() {
+        new_opp = Math.floor(Math.random()*opponents.length);
+        // recursion because it's easier than being smart?
+        if (new_opp == cur_opponent_index) {
+          return newOpponent();
+        }
+        return new_opp;
+      }
+
+      // if timed mode, update time display with new time counter value
+      // if not, display infinity
+      function updateTimeDisplay() {
+        var x = document.getElementsByClassName("time");
+        if (timedMode) {
+          x[0].innerHTML = ("Time Remaining: " + timeCounter);
+        }
+        else {
+          x[0].innerHTML = ("Time Remaining: &#8734");
+        }
+      }
+
+      // recalculate distance between vacuum and opponent and update display
+      function updateDistanceDisplay() {
+        var x = document.getElementsByClassName("distance");
+        // getDistance uses google maps API for spherical distance calculation
+        // default unit is meters
+        meters = Math.round(getDistance());
+        // if less than a mile, display in meters
+        if (meters < 1605) {
+          x[0].innerHTML = ("Distance: " + meters + "m");
+        }
+        // otherwise, display in miles
+        else {
+          miles = Math.round(getDistance()/1605*100)/100;
+          x[0].innerHTML = ("Distance: " + miles + "mi");
+        }
+      }
+
+      // return latitude/longitude of new goal point for opponent
+      function findGoal() {
+        var curPos = opponent.getPosition();
+
+        // to approximate normal distribution (more likely to pick central values), sum four uniform random numbers
+        var lat_inc = randomInc() + randomInc()  + randomInc()  + randomInc();
+        var lng_inc = randomInc() + randomInc()  + randomInc()  + randomInc();
+        var goal = new google.maps.LatLng(curPos.lat() + lat_inc, curPos.lng()+ lng_inc);
+        return goal;
+      }
+
+      // uses movement values calculated based on zoom level
+      function randomInc(){
+        return Math.random() * opponent_movement*2 - opponent_movement;
+      }
+
+      // set up a chain reaction of opponent movements towards a goal point
+      // using Google Maps driving directions
+      function moveOpponent() {
+        var start = opponent.getPosition();
+        var end = findGoal();
+
+        // request driving directions from current location to goal location
+        var request = {
+            origin:start,
+            destination:end,
+            travelMode: google.maps.TravelMode.DRIVING
+        };
+
+        directionsService.route(request, function(response, status) {
+          // if the request was successful
+          if (status == google.maps.DirectionsStatus.OK) {
+            // array of latitude/longitude pairs along the route between current location and goal
+            var goal_path = response.routes[0].overview_path;
+
+            // move to first point in goal path
+            // will call further movements and eventually will call moveOpponent() again
+            moveOneStep(0, goal_path);
+          }
+
+          // if the request was unsuccessful, try again after ten ms
+          // (API usage limits)
+          else {
+            setTimeout(moveOpponent, 10);
+          }
+        });
+      }
+
+      // move opponent to ith point in goal path
+      // and call further movement functions
+      function moveOneStep (i, goal_path) {
+        // after a specified increment of time (getStepTime())
+        setTimeout(function () {
+
+          // add the point to the opponent end of the vaccum to opponent path
+          addToRouteEnd(goal_path[i]);
+
+          // update position and distance
+          opponent.setPosition(goal_path[i]);
+          updateDistanceDisplay();
+
+          i++;
+          // if we're not done with the path, move to next point
+          if (i < goal_path.length) {
+             moveOneStep(i, goal_path);
+          }
+
+          // otherwise, calculate new path!
+          else if (i == goal_path.length) {
+            moveOpponent();
+          }
+        }, getStepTime())
+      }
+
+      // add the given point to the opponent end of the vacuum to opponent route
+      function addToRouteEnd(point) {
+        path = vacuum_to_opponent.getPath();
+        path.push(point);
+        vacuum_to_opponent.setPath(removeBacktracking(path));
+      }
+
+      // add the given point to the vacuum end of the vacuum to opponent route
+      function addToRouteBeginning(point) {
+        path = vacuum_to_opponent.getPath();
+        path.insertAt(0,point);
+        vacuum_to_opponent.setPath(removeBacktracking(path));
+      }
+
+      // how long opponent will take between movement steps
+      function getStepTime() {
+        if (map.getZoom() > 15) {
+          return 150;
+        }
+        return 100;
+      }
+
+      // detect and remove (some) loops in path
+      function removeBacktracking(MVCArray_path) {
+        path = MVCArray_path.getArray();
+        if (path.length == 0) {
+          return path;
+        }
+        for (var i = 0; i < path.length; i++) {
+          for (var j = 0; j < path.length; j++) {
+            if (i!= j && google.maps.geometry.spherical.computeDistanceBetween(path[i], path[j]) < 10) {
+              var k = j - i;
+              path.splice(i, k);
+            }
+          }
+        }
+        return path;
+      }
+
+      // use an API call to calculate walking directions from vacuum to opponent
+      // updates the global route
+      function calcRoute() {
+        var start = vacuum.getPosition();
+        var end = opponent.getPosition();
+        var request = {
+            origin:start,
+            destination:end,
+            travelMode: google.maps.TravelMode.WALKING
+        };
+        directionsService.route(request, function(response, status) {
+          if (status == google.maps.DirectionsStatus.OK) {
+            vacuum_to_opponent.setPath(response.routes[0].overview_path)
+            vacuum_to_opponent.setMap(map);
+          }
+        });
+      }
+
+      // pick a new location for the vacuum cleaner
+      function findNewStart() {
+        var curPos = vacuum.getPosition();
+
+        // pick random angle and use trig to get a point along a circle
+        angle = Math.random()*2*Math.PI;
+
+        var lat_inc = Math.sin(angle)*opponent_movement;
+        var lng_inc = Math.cos(angle)*opponent_movement;
+
+        var newPos = new google.maps.LatLng(curPos.lat() + lat_inc, curPos.lng()+ lng_inc);
+        return newPos;
+      }
+
+      // shorthand for vacuum to opponent distance (in meters)
+      function getDistance() {
+        return google.maps.geometry.spherical.computeDistanceBetween(vacuum.getPosition(), opponent.getPosition());
+      }
+
+      // handles vacuum/opponent collisions
+      function collision() {
+        immune = true;
+        // update score
+        catch_counter++;
+        var x = document.getElementsByClassName("score");
+        x[0].innerHTML = ("Score: " + catch_counter);
+        
+        // get new opponent and update route color
+        cur_opponent_index = newOpponent();
+        line_options.strokeColor = getLineColor();
+        vacuum_to_opponent.setOptions(line_options);
+        opponent.setIcon(opponents[cur_opponent_index] + ".gif");
+
+        // find new position for vacuum
+        vacuum.setPosition(findNewStart());
+        updateDistanceDisplay()
+        map.panTo(vacuum.getPosition());
+        calcRoute();
+
+        // after 100ms, reset collision immunity
+        setTimeout(function() {
+          immune = false;
+        },100);
+      }
+
+      // based on zoom level
+      function updateVacuumMovement() {
+        zoom = map.getZoom();
+        if (zoom == 13) {
+          vacuum_movement = 0.00065;
+        }
+        if (zoom == 14) {
+          vacuum_movement = 0.00035;
+        }
+        if (zoom == 15) {
+          vacuum_movement = 0.00015;
+        }
+        if (zoom == 16) {
+          vacuum_movement = 0.000065;
+        }
+        if (zoom == 17) {
+          vacuum_movement = 0.00004;
+        }
+        if (zoom == 18) {
+          vacuum_movement = 0.00002;
+        }
+        if (zoom == 19) {
+          vacuum_movement = 0.000015;
+        }
+        if (zoom == 20) {
+          vacuum_movement = 0.000008;
+        }
+      }
+
+      google.maps.event.addDomListener(window, 'load', initialize);
+
+      // if a key is pressed
+      document.onkeypress = function(){
+
+        // zoom in
+        if (String.fromCharCode(event.which) ==="e"){
+          map.setZoom(map.getZoom()-1);
+        }
+        // zoom out
+        else if (String.fromCharCode(event.which) ==="q"){
+          map.setZoom(map.getZoom()+1);
+        }
+
+        // move the vacuum
+        else {
+            // up
+            if (String.fromCharCode(event.which) ==="w"){
+              vacuum.setPosition(new google.maps.LatLng(vacuum.getPosition().lat() + vacuum_movement, vacuum.getPosition().lng() + 0));
+            }
+            // down
+            if (String.fromCharCode(event.which) ==="s"){
+              vacuum.setPosition(new google.maps.LatLng(vacuum.getPosition().lat() - vacuum_movement, vacuum.getPosition().lng() + 0));
+            }
+            // right
+            if (String.fromCharCode(event.which) ==="d"){
+              vacuum.setPosition(new google.maps.LatLng(vacuum.getPosition().lat() + 0, vacuum.getPosition().lng() + vacuum_movement));
+            }
+            // left
+            if (String.fromCharCode(event.which) ==="a"){
+              vacuum.setPosition(new google.maps.LatLng(vacuum.getPosition().lat() + 0, vacuum.getPosition().lng() - vacuum_movement));
+            }
+            // update route and distance and recenter map on vacuum
+            addToRouteBeginning(vacuum.getPosition());
+            map.panTo(vacuum.getPosition());
+            updateDistanceDisplay()
+
+            // detect collision (if opponent is not currently immune)
+            // approximately: if within a mile in farthest out zoom
+            //   if within 8 meters in closest zoom
+            if (getDistance() < 1000000*vacuum_movement && !immune) {
+              collision();
+            }
+        }
+
+      };
+    </script>
+    <div id="panel">
+      <p class="score">Score: 0</p>
+      <p class="time"> Time Remaining: </p>
+      <p class="distance">Distance: </p>
+    </div>
+    <audio src="soundtrack.mp3" autoplay loop>
+      Your broswer does not support this
+    </audio>
+  </body>
+</html>
