@@ -53,7 +53,7 @@
       var vacuum;
 
       // one of these will be displayed as the marker to be caught
-      var opponents = ["stevie_p", "dln", "jeff", "amy", "andy", "jadrian", "dave", "anna", "sherri", "putin", "obama"];
+      var opponents = ["stevie_p", "dln", "jeff", "amy", "andy", "jadrian", "dave", "anna", "sherri", "putin", "obama", "schiller"];
       // pick one randomly
       var cur_opponent_index = Math.floor(Math.random() * opponents.length);
 
@@ -122,8 +122,11 @@
           // Soviet red for Putin
           return "#A60202";
         }
-        else {
+        else if (cur_opponent_index == 10) {
           return "#0052A5";
+        }
+        else {
+          return "#0D0D0D";
         }
       }
 
@@ -393,7 +396,13 @@
       function collision() {
         immune = true;
         // update score
-        catch_counter++;
+        if (cur_opponent_index == 9) {
+          catch_counter = catch_counter + 100;
+        }
+        else {
+          catch_counter++;
+        }
+
         var x = document.getElementsByClassName("score");
         x[0].innerHTML = ("Score: " + catch_counter);
         
