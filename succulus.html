@@ -408,22 +408,30 @@
         return google.maps.geometry.spherical.computeDistanceBetween(vacuum.getPosition(), opponent.getPosition());
       }
 
+      function getPoints() {
+        if (cur_opponent_index == 3) {
+          return 15;
+        }
+        if (cur_opponent_index == 0) {
+          return 25;
+        }
+        if (cur_opponent_index == 9) {
+          return 100;
+        }
+        if (cur_opponent_index == 10) {
+          return 50;
+        }
+        if (cur_opponent_index == 11) {
+          return 500;
+        }
+        return 5;
+      }
+
       // handles vacuum/opponent collisions
       function collision() {
         immune = true;
         // update score
-        if (cur_opponent_index == 9) {
-          catch_counter = catch_counter + 100;
-        }
-        if (cur_opponent_index == 10) {
-          catch_counter = catch_counter + 50;
-        }
-        else if (cur_opponent_index == 11) {
-          catch_counter = catch_counter + 500;
-        }
-        else {
-          catch_counter++;
-        }
+        catch_counter = catch_counter + getPoints();
 
         var x = document.getElementsByClassName("score");
         x[0].innerHTML = ("Score: " + catch_counter);
