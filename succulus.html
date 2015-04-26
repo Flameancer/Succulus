@@ -126,7 +126,7 @@
           return "#0052A5";
         }
         else {
-          return "#0D0D0D";
+          return "#FFFFFF";
         }
       }
 
@@ -222,6 +222,9 @@
         }
         else {
           x[0].innerHTML = ("Time Remaining: &#8734");
+        }
+        if (timeCounter <= 10) {
+          document.getElementsByClassName("time").style.color = "red";
         }
       }
 
