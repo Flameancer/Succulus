@@ -3,7 +3,7 @@
   <head>
     <script src="http://code.jquery.com/jquery-1.4.4.js"></script>
     <style type="text/css">
-     html, body, #map-canvas { height: 100%; margin: 0; padding: 0;}
+     html, body, #map-canvas { height: 100%; margin: 0; padding: 0;background-color: black;}
 
      #panel {
        position: absolute;
@@ -39,6 +39,18 @@
        bottom: 100%;
        margin:auto;
      }
+     #inst{
+       position: fixed;
+       left: 10px;
+       bottom: 0;
+     }
+     p.text{
+      font-family:"Lucidia Console", "Monaco", monospace;
+      position: relative;
+      color: #c8cb2c ;
+      font-size: 1.59em;
+     }
+
    </style>
   </head>
   <body>
@@ -225,7 +237,7 @@
           x[0].innerHTML = ("Time Remaining: &#8734");
         }
         if (timeCounter <= 10) {
-          document.getElementsByClassName("time").style.color = "red";
+          x[0].style.color = "red";
         }
       }
 
@@ -519,8 +531,12 @@
       <p class="time"> Time Remaining: </p>
       <p class="distance">Distance: </p>
     </div>
+    <div id="inst">
+      <p class="text"> wasd to move, qe to change zoom</p>
+    </div>
     <audio src="soundtrack.mp3" autoplay loop>
       Your broswer does not support this
     </audio>
+
   </body>
 </html>
