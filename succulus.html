@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html>
   <head>
+    <script src="http://code.jquery.com/jquery-1.4.4.js"></script>
     <style type="text/css">
      html, body, #map-canvas { height: 100%; margin: 0; padding: 0;}
 
@@ -461,34 +462,33 @@
 
       google.maps.event.addDomListener(window, 'load', initialize);
 
-      // if a key is pressed
-      document.onkeypress = function(){
 
-        // zoom in
-        if (String.fromCharCode(event.which) ==="e"){
+      $(document).keydown(function(event) {
+       // zoom in
+        if (event.keyCode == 81){
           map.setZoom(map.getZoom()-1);
         }
         // zoom out
-        else if (String.fromCharCode(event.which) ==="q"){
+        else if (event.keyCode == 69){
           map.setZoom(map.getZoom()+1);
         }
 
         // move the vacuum
         else {
             // up
-            if (String.fromCharCode(event.which) ==="w"){
+            if (event.keyCode == 87){
               vacuum.setPosition(new google.maps.LatLng(vacuum.getPosition().lat() + vacuum_movement, vacuum.getPosition().lng() + 0));
             }
             // down
-            if (String.fromCharCode(event.which) ==="s"){
+            if (event.keyCode == 83){
               vacuum.setPosition(new google.maps.LatLng(vacuum.getPosition().lat() - vacuum_movement, vacuum.getPosition().lng() + 0));
             }
             // right
-            if (String.fromCharCode(event.which) ==="d"){
+            if (event.keyCode == 68){
               vacuum.setPosition(new google.maps.LatLng(vacuum.getPosition().lat() + 0, vacuum.getPosition().lng() + vacuum_movement));
             }
             // left
-            if (String.fromCharCode(event.which) ==="a"){
+            if (event.keyCode == 65){
               vacuum.setPosition(new google.maps.LatLng(vacuum.getPosition().lat() + 0, vacuum.getPosition().lng() - vacuum_movement));
             }
             // update route and distance and recenter map on vacuum
@@ -503,8 +503,16 @@
               collision();
             }
         }
+       // alert('You pressed '+event.keyCode);
+        event.preventDefault();
+      });
 
-      };
+      // if a key is pressed
+      // document.onkeypress = function(){
+
+      //   
+
+      // };
     </script>
     <div id="panel">
       <p class="score">Score: 0</p>
